@@ -14,7 +14,7 @@ local meta_table = {
       timeout = value
       tcp_socket:settimeout(value)
     elseif key == "speed" then
-      if value < 0.0 and value > 1.0 or type(value) ~= "number" then
+      if value < 0.0 or value > 1.0 or type(value) ~= "number" then
         value_error()
       else 
         set_speed(value)
@@ -46,10 +46,14 @@ local meta_table = {
 
 
 function protocol_error(response, expected)
-  error("Server responded with '"..response.."' but expected '"..expected.."'.", 2) -- 5 sends it back to demo.lua
+  error("Server responded with '"..response.."' but expected '"..expected.."'.", 2) -- 5 sends stacktrace back to demo.lua
 end
 
-function socket_error(connected)
+function socket_error(connected, serverClosed)
+  serverClosed = serverClosed or false
+  if serverClosed then
+    error("Server has gone byebye.", 2)
+  end
   if not connected then
     error("You already closed the connection with the RobotArm.", 2)
   else
@@ -70,13 +74,16 @@ end
 local function receive()
   data, err = tcp_socket:receive()
   
+  if data == "bye" then
+    socket_error(meta_table.connected, true)
+  end
+  
   if err == "timeout" then
     timeout_error(robot_arm.timeout)
   elseif err == "closed" then
     socket_error(meta_table.connected)
-  end
+  end  
   
-  print(data)
   return data
 end
 
@@ -164,10 +171,10 @@ function robot_arm:scan()
   response = send("scan")
   check_response(response, "a color", {"red","blue","green","white","none","bye"})
   
-  if response == "red" or response == "blue" or response == "green" or response == "white" or response == "none" then
+  if response == "red" or response == "blue" or response == "green" or response == "white" then
     return robot_arm.colors[response]
   else
-    return robot_arm.colors.none
+    return nil
   end
 end
 
@@ -177,7 +184,7 @@ function robot_arm:load_level(name)
 end
 
 function set_speed(speed)
-  response = send("speed "..tostring(speed))
+  response = send("speed "..tostring(speed*100))
   check_response(response, "ok", {"ok","bye"})
 end
 
@@ -190,7 +197,7 @@ end
 
 setmetatable(robot_arm, meta_table)
 
-robot_arm.colors = { red=0, green=1, blue=2, white=3, none=4 }
+robot_arm.colors = { red="red", green="green", blue="blue", white="white", none="none" }
 
 robot_arm:connect()
 
