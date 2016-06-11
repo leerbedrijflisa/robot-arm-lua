@@ -1,7 +1,7 @@
 local socket = require("socket")
 local tcp_socket = socket.tcp()
 
-local robot_arm = {}
+robot_arm = {}
 
 local meta_table = {
   ip = "127.0.0.1", 
@@ -176,6 +176,10 @@ function robot_arm:scan()
   else
     return nil
   end
+end
+
+function robot_arm:random_level()
+  robot_arm:load_level("random")
 end
 
 function robot_arm:load_level(name)
